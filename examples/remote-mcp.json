@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "github-master": {
+      "url": "https://YOUR-SERVICE.onrender.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_GITHUB_MCP_ACCESS_TOKEN"
+      }
+    }
+  }
+}

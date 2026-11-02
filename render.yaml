@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: github-master-mcp
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:http
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: GITHUB_MCP_TRANSPORT
+        value: http
+      - key: GITHUB_MCP_MODE
+        value: edit
+      - key: GITHUB_MCP_ALLOW_PUSH
+        value: "false"
+      - key: GITHUB_MCP_ALLOW_COMMANDS
+        value: "false"
+      - key: GITHUB_MCP_ACCESS_TOKEN
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_MCP_CONFIRMATION_PHRASE
+        sync: false

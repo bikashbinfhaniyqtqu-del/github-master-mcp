@@ -1,22 +1,27 @@
 {
   "name": "github-master-mcp",
-  "version": "1.0.0",
-  "description": "A local-first MCP server that lets compatible AI clients inspect, edit, test, and manage GitHub repositories.",
+  "version": "1.1.0",
+  "description": "A local and remote MCP server that lets compatible AI clients inspect, edit, test, and manage GitHub repositories with approval safeguards.",
   "type": "module",
   "private": false,
   "license": "MIT",
-  "engines": { "node": ">=20.6.0" },
+  "engines": {
+    "node": ">=20.6.0"
+  },
   "bin": {
     "github-master-mcp": "src/index.js"
   },
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/github.js && node --check src/workspace.js && node --check src/tools.js"
+    "check": "node --check src/index.js && node --check src/config.js && node --check src/http.js && node --check src/auth.js && node --check src/generate-token.js && node --check src/github.js && node --check src/workspace.js && node --check src/tools.js",
+    "start:http": "GITHUB_MCP_TRANSPORT=http node src/index.js",
+    "generate:token": "node src/generate-token.js"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
     "dotenv": "^17.2.3",
-    "zod": "^4.1.12"
+    "zod": "^4.2.0",
+    "@modelcontextprotocol/node": "^2.1.2"
   }
 }

@@ -1,14 +1,14 @@
 # GitHub Master MCP
 
-A local-first MCP server that gives MCP-compatible AI clients tools to open, inspect, edit, test, commit, and manage GitHub repositories.
+A local and remote MCP server that gives compatible AI clients tools to open, inspect, edit, test, commit, and manage GitHub repositories.
 
-**No hosting, VPS, public server, or database is required.** The MCP server runs locally over STDIO. Repositories are cloned to your computer, and edits happen in that local checkout. Changes reach GitHub only when you explicitly enable and approve a push.
+**Two connection modes are available:** local STDIO for desktop/local MCP clients, or remote Streamable HTTP at `/mcp` for clients that can connect to a remote MCP URL and send a Bearer token. Remote mode is protected by a separate high-entropy access token. The GitHub token stays on the server and is never sent to the AI client.
 
-> Important: this is for AI applications that support MCP servers. Pasting a repository URL into a chat app that does not support MCP will not grant that app access. Configure this server in the AI client first.
+> Important: publishing this repository on GitHub does not automatically make it appear in an AI app's plugin directory. The AI app must support remote MCP servers and the authentication method configured here. This version uses a static Bearer access token, not a GitHub OAuth sign-in flow or an app-directory listing.
 
 ## What it can do
 
-This release exposes **30 MCP tools** across local project editing and GitHub management.
+This release exposes the existing GitHub/project tools over either local STDIO or authenticated remote Streamable HTTP.
 
 ### Project workflow
 
@@ -35,7 +35,7 @@ Repository discovery, details, branch/commit history, releases, workflow runs, a
 - Node.js 20.6 or newer (Node 22 LTS or newer recommended).
 - Git installed and available on PATH.
 - A GitHub fine-grained Personal Access Token for private repositories and write operations.
-- An MCP-compatible AI application that supports local STDIO servers.
+- An MCP-compatible AI application that supports local STDIO or remote Streamable HTTP with Bearer-token headers.
 
 ## Install
 
@@ -59,6 +59,74 @@ GITHUB_MCP_ALLOWED_SCRIPTS=test,build,lint,typecheck,check
 ```
 
 Never commit `.env`, paste your token into an AI chat, or share the confirmation phrase. `.env` is ignored by Git.
+
+
+## Remote MCP deployment (Render)
+
+Remote mode makes the MCP endpoint reachable over HTTPS so a compatible AI client can connect by URL. The endpoint is `/mcp`; `/healthz` is a public health check. Remote mode is **single-owner**: every authenticated connection uses the GitHub token configured on this server. Do not share the endpoint and access token with other people.
+
+### 1. Prepare secrets
+
+Install dependencies locally, then generate a separate remote access token:
+
+```bash
+npm install
+npm run generate:token
+```
+
+Copy the generated value somewhere private. It is the MCP connection password; it is **not** your GitHub token. Also prepare a GitHub fine-grained PAT with access only to the repositories you intend the server to manage.
+
+### 2. Deploy the repository
+
+Push this project to your GitHub repository, then create a Render **Web Service** from that repository. Render can read the included `render.yaml`. In the service Environment settings, add these secrets:
+
+- `GITHUB_TOKEN` — your GitHub fine-grained PAT.
+- `GITHUB_MCP_ACCESS_TOKEN` — the generated random bearer token.
+- `GITHUB_MCP_CONFIRMATION_PHRASE` — a separate private phrase used to approve destructive actions.
+
+The blueprint sets remote HTTP mode, editing enabled, and push/command execution disabled by default. Keep those safe defaults initially. Render supplies `PORT`; the service binds to `0.0.0.0`.
+
+When the deploy is live, your MCP URL is:
+
+```text
+https://YOUR-SERVICE.onrender.com/mcp
+```
+
+Health check:
+
+```text
+https://YOUR-SERVICE.onrender.com/healthz
+```
+
+### 3. Connect an MCP client
+
+In an MCP client that supports remote Streamable HTTP and custom Bearer headers, connect to the `/mcp` URL and set this header:
+
+```text
+Authorization: Bearer YOUR_GITHUB_MCP_ACCESS_TOKEN
+```
+
+Some clients expose this as an Authentication/API key field instead of a custom header. Their setup screens differ; use the exact option for that client. `examples/remote-mcp.json` is only a generic configuration example, not a universal config format.
+
+### 4. Start working
+
+Once connected, ask the AI to open a repository URL, analyze it, and make changes. Example:
+
+```text
+Open https://github.com/OWNER/REPO. Analyze the project structure and important files.
+Make the requested changes, preserve the current stack and existing behavior,
+run the available checks, and show me the final diff. Do not commit or push until
+I explicitly approve.
+```
+
+### Remote-mode limitations
+
+- This is a private, single-owner remote MCP server using one GitHub PAT. It is not yet multi-user GitHub OAuth, and this code does not publish an app to any AI app directory.
+- A client must support remote MCP plus the configured Bearer authentication. A URL alone does not grant access.
+- Keep `GITHUB_MCP_ALLOW_PUSH=false` until you are ready. To enable pushing, set it to `true` in the host environment and redeploy; commit/push tools still require the confirmation phrase.
+- Keep `GITHUB_MCP_ALLOW_COMMANDS=false`. Repository scripts can execute arbitrary code and are disabled by default.
+- Render free services may sleep or restart. The working clone is not guaranteed to survive a restart; call `open_repository` again after reconnecting.
+- Never place GitHub PATs, bearer tokens, or confirmation phrases in source files, commit history, or public chat.
 
 ## GitHub token permissions
 
@@ -118,7 +186,7 @@ checks, inspect the final diff, and do not commit or push until I explicitly app
 
 ## Security model and defaults
 
-- **Local STDIO only:** the MCP server does not listen on a network port.
+- **Authentication:** remote `/mcp` calls require a high-entropy Bearer token checked before MCP requests reach the tools.
 - **Local checkout:** code edits are made in the selected local workspace; opening a repo does not push anything.
 - **Push disabled by default:** set `GITHUB_MCP_ALLOW_PUSH=true` only when you are ready to permit remote pushes.
 - **Confirmation phrase:** commit, push, PR merge, workflow rerun, and file deletion require the local phrase configured in `.env`. The owner should only disclose it in chat when approving that exact action.
@@ -134,6 +202,9 @@ The confirmation phrase is an additional guard, not a replacement for the AI cli
 | Variable | Default | Purpose |
 |---|---|---|
 | `GITHUB_TOKEN` | empty | GitHub token; required for private repos and API write operations |
+| `GITHUB_MCP_TRANSPORT` | `stdio` | `stdio` for local MCP or `http` for remote Streamable HTTP |
+| `GITHUB_MCP_ACCESS_TOKEN` | empty | Required in HTTP mode; private Bearer token, minimum 32 characters |
+| `PORT` / `GITHUB_MCP_PORT` | `10000` | HTTP listen port; Render sets `PORT` automatically |
 | `GITHUB_MCP_WORKSPACE` | `~/.github-master-mcp/workspaces` | Local clone directory |
 | `GITHUB_MCP_MODE` | `edit` | `read-only` blocks local file edits, branch creation, commits and pushes |
 | `GITHUB_MCP_ALLOW_PUSH` | `false` | Must be `true` for push tools |
@@ -144,10 +215,12 @@ The confirmation phrase is an additional guard, not a replacement for the AI cli
 
 ## Troubleshooting
 
-- **MCP server not starting:** confirm Node 20+, run `npm install`, then run `npm run check`. Check the MCP client's logs; STDIO stdout must be reserved for the MCP protocol.
+- **MCP server not starting:** confirm Node 20+, run `npm install`, then run `npm run check`. Check the MCP client logs. In STDIO mode, stdout is reserved for MCP protocol messages.
 - **`git` not found:** install Git and make sure `git --version` works in the same environment used by your AI client.
 - **401/403/404 from GitHub:** check that the token is valid, has access to that repository, and has the endpoint-specific fine-grained permissions. GitHub may return 404 for private repositories the token cannot access.
-- **Private clone fails:** confirm `GITHUB_TOKEN` is passed to the MCP process, has Contents read access, and includes that repository.
+- **Remote endpoint returns 401:** confirm the client sends `Authorization: Bearer ...` and that it exactly matches `GITHUB_MCP_ACCESS_TOKEN` on the host.
+- **HTTP mode does not start:** confirm `GITHUB_MCP_TRANSPORT=http`, `GITHUB_TOKEN`, and a 32+ character `GITHUB_MCP_ACCESS_TOKEN` are set.
+- **Private clone fails:** confirm `GITHUB_TOKEN` is set on the server, has Contents read access, and includes that repository.
 - **Push blocked:** confirm local changes are committed, `GITHUB_MCP_ALLOW_PUSH=true`, the configured phrase is set, and the token has Contents write access.
 - **Command execution blocked:** by design. Set `GITHUB_MCP_ALLOW_COMMANDS=true` only for a trusted repo and allow the needed script name.
 

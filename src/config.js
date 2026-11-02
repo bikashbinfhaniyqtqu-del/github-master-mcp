@@ -15,6 +15,10 @@ const configuredWorkspace = process.env.GITHUB_MCP_WORKSPACE || path.join(os.hom
 
 export const config = Object.freeze({
   token: process.env.GITHUB_TOKEN || '',
+  transport: (process.env.GITHUB_MCP_TRANSPORT || 'stdio').toLowerCase(),
+  accessToken: process.env.GITHUB_MCP_ACCESS_TOKEN || '',
+  host: process.env.HOST || '0.0.0.0',
+  port: Math.min(Math.max(Number.parseInt(process.env.PORT || process.env.GITHUB_MCP_PORT || '10000', 10) || 10000, 1), 65535),
   workspaceRoot: path.resolve(configuredWorkspace),
   mode: (process.env.GITHUB_MCP_MODE || 'edit').toLowerCase(),
   allowPush: bool(process.env.GITHUB_MCP_ALLOW_PUSH, false),
@@ -27,6 +31,10 @@ export const config = Object.freeze({
   maxWriteBytes: 1024 * 1024,
   commandTimeoutMs: 120_000,
 });
+
+if (!['stdio', 'http'].includes(config.transport)) {
+  throw new Error('GITHUB_MCP_TRANSPORT must be either \"stdio\" or \"http\".');
+}
 
 if (!['read-only', 'edit'].includes(config.mode)) {
   throw new Error('GITHUB_MCP_MODE must be either "read-only" or "edit".');
