@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "github-master": {
+      "command": "node",
+      "args": [
+        "--env-file=/ABSOLUTE/PATH/github-master-mcp/.env",
+        "/ABSOLUTE/PATH/github-master-mcp/src/index.js"
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "github-master-mcp",
+  "version": "1.0.0",
+  "description": "A local-first MCP server that lets compatible AI clients inspect, edit, test, and manage GitHub repositories.",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "engines": { "node": ">=20.6.0" },
+  "bin": {
+    "github-master-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check src/github.js && node --check src/workspace.js && node --check src/tools.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  }
+}

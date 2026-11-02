@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "github-master": {
+      "type": "local",
+      "command": [
+        "node",
+        "--env-file=/ABSOLUTE/PATH/github-master-mcp/.env",
+        "/ABSOLUTE/PATH/github-master-mcp/src/index.js"
+      ],
+      "enabled": true
+    }
+  }
+}
